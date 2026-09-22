@@ -1,4 +1,4 @@
-// ===== 1. API KEY (Safe: browser లో మాత్రమే) =====
+// ===== 1. API KEY =====
 let API_KEY = localStorage.getItem('jarvis_key');
 
 if (!API_KEY) {
@@ -10,19 +10,75 @@ if (!API_KEY) {
 }
 
 
-// ===== 2. SMART MODELS (ఒకటి fail అయితే next auto try) =====
+// ===== 2. MODELS =====
 const MODELS = [
     "gemini-3.6-flash",
     "gemini-flash-latest"
 ];
 
+
+// ===== 3. ELEMENTS =====
 const chat = document.getElementById('chat');
 const input = document.getElementById('msg');
 const micBtn = document.getElementById('mic-btn');
+const clearBtn = document.getElementById('clear-btn');
+const camBtn = document.getElementById('cam-btn');
+const imgInput = document.getElementById('img-input');
 
 
-// ===== 3. GEMINI BRAIN (auto-fallback) =====
+// ===== 4. MEMORY =====
+let MEMORY = JSON.parse(
+    localStorage.getItem('jarvis_memory') || '[]'
+);
+
+function saveMemory() {
+    localStorage.setItem(
+        'jarvis_memory',
+        JSON.stringify(MEMORY)
+    );
+}
+
+
+// Show old memory when page opens
+MEMORY.forEach(m => {
+
+    add(
+        (m.role === 'user'
+            ? 'YOU: '
+            : 'J.A.R.V.I.S: ') + m.text,
+
+        m.role === 'user'
+            ? 'user'
+            : 'ai'
+    );
+
+});
+
+
+// ===== 5. GEMINI BRAIN =====
 async function callGemini(p) {
+
+    // Send previous conversation to Gemini
+    const contents = MEMORY
+        .slice(-12)
+        .map(m => ({
+            role: m.role,
+            parts: [
+                {
+                    text: m.text
+                }
+            ]
+        }));
+
+    // Add current question
+    contents.push({
+        role: 'user',
+        parts: [
+            {
+                text: p
+            }
+        ]
+    });
 
     let lastErr;
 
@@ -43,15 +99,7 @@ async function callGemini(p) {
                     },
 
                     body: JSON.stringify({
-                        contents: [
-                            {
-                                parts: [
-                                    {
-                                        text: p
-                                    }
-                                ]
-                            }
-                        ]
+                        contents: contents
                     })
                 }
             );
@@ -60,7 +108,8 @@ async function callGemini(p) {
 
             if (data.error) {
 
-                lastErr = new Error(data.error.message);
+                lastErr =
+                    new Error(data.error.message);
 
                 if (
                     /high demand|temporar|quota|rate|unavailable|no longer available|deprecated/i
@@ -72,11 +121,13 @@ async function callGemini(p) {
                 throw lastErr;
             }
 
-            return data.candidates[0].content.parts[0].text;
+            return data.candidates[0]
+                .content.parts[0].text;
 
         } catch (e) {
 
             lastErr = e;
+
         }
     }
 
@@ -84,123 +135,349 @@ async function callGemini(p) {
 }
 
 
+// ===== 6. ASK GEMINI =====
 async function askGemini(p) {
 
-    add('J.A.R.V.I.S: Thinking...', 'ai');
+    add(
+        'J.A.R.V.I.S: Thinking...',
+        'ai'
+    );
 
     try {
 
         const reply = await callGemini(p);
 
-        chat.lastChild.innerText = 'J.A.R.V.I.S: ' + reply;
+        // Save conversation
+        MEMORY.push({
+            role: 'user',
+            text: p
+        });
 
-        speak(reply); // reply వచ్చిన వెంటనే VOICE
+        MEMORY.push({
+            role: 'model',
+            text: reply
+        });
+
+        saveMemory();
+
+        chat.lastChild.innerText =
+            'J.A.R.V.I.S: ' + reply;
+
+        speak(reply);
 
     } catch (e) {
 
         chat.lastChild.innerText =
-            'J.A.R.V.I.S: ERROR - ' + e.message;
+            'J.A.R.V.I.S: ERROR - ' +
+            e.message;
     }
 }
 
 
-// ===== 4. SPEECH RECOGNITION (వినడం) =====
+// ===== 7. CAMERA / VISION =====
+
+camBtn.onclick = () => {
+
+    imgInput.click();
+
+};
+
+
+imgInput.onchange = () => {
+
+    const file = imgInput.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+
+        const base64 =
+            reader.result.split(',')[1];
+
+        const q =
+            input.value.trim() ||
+            'What do you see? Describe briefly in Telugu or English.';
+
+        add(
+            'YOU: [IMAGE] ' + q,
+            'user'
+        );
+
+        input.value = '';
+
+        askVision(
+            base64,
+            file.type,
+            q
+        );
+    };
+
+    reader.readAsDataURL(file);
+
+};
+
+
+async function askVision(base64, mime, q) {
+
+    add(
+        'J.A.R.V.I.S: Analyzing image...',
+        'ai'
+    );
+
+    let lastErr;
+
+    for (const m of MODELS) {
+
+        try {
+
+            const res = await fetch(
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                + m
+                + ":generateContent?key="
+                + API_KEY,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        contents: [
+                            {
+                                parts: [
+                                    {
+                                        text: q
+                                    },
+                                    {
+                                        inline_data: {
+                                            mime_type: mime,
+                                            data: base64
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+
+                    })
+                }
+            );
+
+            const data = await res.json();
+
+            if (data.error) {
+
+                lastErr =
+                    new Error(data.error.message);
+
+                if (
+                    /high demand|temporar|quota|rate|unavailable|no longer available|deprecated/i
+                    .test(data.error.message)
+                ) {
+                    continue;
+                }
+
+                throw lastErr;
+            }
+
+            const reply =
+                data.candidates[0]
+                    .content.parts[0].text;
+
+            chat.lastChild.innerText =
+                'J.A.R.V.I.S: ' + reply;
+
+            speak(reply);
+
+            return;
+
+        } catch (e) {
+
+            lastErr = e;
+
+        }
+    }
+
+    chat.lastChild.innerText =
+        'J.A.R.V.I.S: ERROR - ' +
+        lastErr.message;
+}
+
+
+// ===== 8. SPEECH RECOGNITION =====
 
 const SR =
     window.SpeechRecognition ||
     window.webkitSpeechRecognition;
 
-const rec = new SR();
+let rec = null;
 
-rec.lang = 'en-US'; // Telugu కి 'te-IN'
+if (SR) {
 
+    rec = new SR();
 
-rec.onresult = (e) => {
+    rec.lang = 'en-US';
 
-    const t = e.results[0][0].transcript;
+    rec.onresult = (e) => {
 
-    add('YOU: ' + t, 'user');
+        const t =
+            e.results[0][0].transcript;
 
-    askGemini(t);
-};
+        add(
+            'YOU: ' + t,
+            'user'
+        );
+
+        askGemini(t);
+    };
+
+    rec.onend = () => {
+
+        micBtn.innerText = '🎤';
+
+    };
+
+}
 
 
 micBtn.onclick = () => {
 
+    if (!rec) {
+
+        add(
+            'J.A.R.V.I.S: Speech recognition is not supported in this browser.',
+            'ai'
+        );
+
+        return;
+    }
+
     rec.start();
 
-    micBtn.innerText = 'LISTENING...';
+    micBtn.innerText =
+        'LISTENING...';
 };
 
 
-rec.onend = () => {
-
-    micBtn.innerText = '🎤';
-};
-
-
-// ===== 5. TEXT-TO-SPEECH (మాట్లాడటం) =====
+// ===== 9. TEXT TO SPEECH =====
 
 let voices = [];
 
 
 function loadVoices() {
 
-    voices = speechSynthesis.getVoices();
+    voices =
+        speechSynthesis.getVoices();
+
 }
 
 
 loadVoices();
 
-speechSynthesis.onvoiceschanged = loadVoices;
+speechSynthesis.onvoiceschanged =
+    loadVoices;
 
 
 function speak(t) {
 
-    const u = new SpeechSynthesisUtterance(t);
+    const u =
+        new SpeechSynthesisUtterance(t);
 
     u.rate = 1.05;
+
     u.pitch = 0.85;
 
-    const v = voices.find(v =>
-        v.lang.startsWith('en')
-    );
+    const v =
+        voices.find(v =>
+            v.lang.startsWith('en')
+        );
 
     if (v) {
+
         u.voice = v;
+
     }
 
     speechSynthesis.speak(u);
+
 }
 
 
-// ===== 6. TEXT SEND BUTTON =====
+// ===== 10. SEND BUTTON =====
 
-document.getElementById('send').onclick = () => {
+document.getElementById('send').onclick =
+    () => {
 
-    const t = input.value.trim();
+        const t =
+            input.value.trim();
 
-    if (!t) return;
+        if (!t) return;
 
-    add('YOU: ' + t, 'user');
+        add(
+            'YOU: ' + t,
+            'user'
+        );
 
-    input.value = '';
+        input.value = '';
 
-    askGemini(t);
+        askGemini(t);
+
+    };
+
+
+// ===== 11. ENTER KEY =====
+
+input.addEventListener(
+    'keydown',
+    (e) => {
+
+        if (e.key === 'Enter') {
+
+            document.getElementById(
+                'send'
+            ).click();
+
+        }
+
+    }
+);
+
+
+// ===== 12. CLEAR MEMORY =====
+
+clearBtn.onclick = () => {
+
+    MEMORY = [];
+
+    saveMemory();
+
+    chat.innerHTML = '';
+
+    add(
+        'SYSTEM: Memory cleared.',
+        'ai'
+    );
+
 };
 
 
-// ===== 7. ADD MESSAGE TO CHAT =====
+// ===== 13. ADD MESSAGE =====
 
 function add(t, w) {
 
-    const d = document.createElement('div');
+    const d =
+        document.createElement('div');
 
-    d.className = 'msg ' + w;
+    d.className =
+        'msg ' + w;
 
     d.innerText = t;
 
     chat.appendChild(d);
 
-    chat.scrollTop = chat.scrollHeight;
-        }
+    chat.scrollTop =
+        chat.scrollHeight;
+            }
