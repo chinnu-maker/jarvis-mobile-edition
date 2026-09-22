@@ -1,6 +1,7 @@
 // ================================
 // J.A.R.V.I.S MOBILE EDITION
-// MEMORY + VISION + VOICE
+// MEMORY + PERMANENT MEMORY
+// VISION + VOICE
 // ================================
 
 
@@ -35,26 +36,29 @@ const camBtn = document.getElementById("cam-btn");
 const imgInput = document.getElementById("img-input");
 
 
-// ---------- MEMORY ----------
+// =================================
+// NORMAL MEMORY
+// =================================
+
 let MEMORY =
-    JSON.parse(localStorage.getItem("jarvis_memory") || "[]");
+    JSON.parse(
+        localStorage.getItem("jarvis_memory") || "[]"
+    );
 
 
-// ---------- SHOW OLD MEMORY ----------
-MEMORY.forEach(m => {
+// =================================
+// PERMANENT MEMORY
+// =================================
 
-    if (m.role === "user") {
-        add(m.text, "user");
-    }
-
-    if (m.role === "model") {
-        add(m.text, "bot");
-    }
-
-});
+let PERMANENT_MEMORY =
+    JSON.parse(
+        localStorage.getItem(
+            "jarvis_permanent_memory"
+        ) || "[]"
+    );
 
 
-// ---------- SAVE MEMORY ----------
+// ---------- SAVE NORMAL MEMORY ----------
 function saveMemory() {
 
     localStorage.setItem(
@@ -65,71 +69,192 @@ function saveMemory() {
 }
 
 
-// ---------- GEMINI TEXT ----------
+// ---------- SAVE PERMANENT MEMORY ----------
+function savePermanentMemory() {
+
+    localStorage.setItem(
+        "jarvis_permanent_memory",
+        JSON.stringify(PERMANENT_MEMORY)
+    );
+
+}
+
+
+// =================================
+// SHOW OLD NORMAL MEMORY
+// =================================
+
+MEMORY.forEach(m => {
+
+    if (m.role === "user") {
+
+        add(
+            m.text,
+            "user"
+        );
+
+    }
+
+    if (m.role === "model") {
+
+        add(
+            m.text,
+            "bot"
+        );
+
+    }
+
+});
+
+
+// =================================
+// GEMINI TEXT
+// =================================
+
 async function callGemini(prompt) {
 
-    const contents = MEMORY
-        .slice(-12)
-        .map(m => ({
-            role: m.role,
-            parts: [
-                {
-                    text: m.text
-                }
-            ]
-        }));
 
+    // ---------- PERMANENT MEMORY CONTEXT ----------
+
+    const permanentContext =
+        PERMANENT_MEMORY.length > 0
+            ? `
+
+IMPORTANT PERMANENT MEMORY:
+
+${PERMANENT_MEMORY.join("\n")}
+
+Use these memories whenever they are relevant.
+Do not mention this memory system unless necessary.
+`
+            : "";
+
+
+    // ---------- NORMAL MEMORY ----------
+
+    const contents =
+        MEMORY
+            .slice(-12)
+            .map(m => ({
+
+                role: m.role,
+
+                parts: [
+                    {
+                        text: m.text
+                    }
+                ]
+
+            }));
+
+
+    // ---------- JARVIS INSTRUCTIONS ----------
+
+    contents.unshift({
+
+        role: "user",
+
+        parts: [
+
+            {
+                text:
+                    `You are J.A.R.V.I.S,
+a helpful personal AI assistant.
+
+You can communicate naturally in
+English and Telugu.
+
+Be concise, helpful and natural.
+
+${permanentContext}`
+            }
+
+        ]
+
+    });
+
+
+    // ---------- CURRENT MESSAGE ----------
 
     contents.push({
+
         role: "user",
+
         parts: [
+
             {
                 text: prompt
             }
+
         ]
+
     });
 
 
     let lastError = null;
 
 
+    // ---------- TRY MODELS ----------
+
     for (const model of MODELS) {
 
         try {
 
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`,
-                {
-                    method: "POST",
+            const response =
+                await fetch(
 
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`,
 
-                    body: JSON.stringify({
-                        contents: contents
-                    })
-                }
-            );
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/json"
+
+                        },
+
+                        body: JSON.stringify({
+
+                            contents:
+                                contents
+
+                        })
+
+                    }
+
+                );
 
 
-            const data = await response.json();
+            const data =
+                await response.json();
 
 
             if (!response.ok) {
+
                 throw new Error(
+
                     data?.error?.message ||
                     "Gemini API error"
+
                 );
+
             }
 
 
             const text =
-                data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                data
+                    ?.candidates?.[0]
+                    ?.content?.parts?.[0]
+                    ?.text;
 
 
             if (text) {
+
                 return text;
+
             }
 
 
@@ -138,6 +263,7 @@ async function callGemini(prompt) {
             );
 
         }
+
 
         catch (error) {
 
@@ -148,190 +274,323 @@ async function callGemini(prompt) {
     }
 
 
-    throw lastError ||
-        new Error("Gemini request failed");
+    throw (
+        lastError ||
+        new Error("Gemini request failed")
+    );
 
 }
 
 
-// ---------- ASK JARVIS ----------
+// =================================
+// ASK JARVIS
+// =================================
+
 async function askGemini(text) {
 
-    add(text, "user");
 
-
-    try {
-
-        const reply =
-            await callGemini(text);
-
-
-        add(reply, "bot");
-
-
-        MEMORY.push({
-            role: "user",
-            text: text
-        });
-
-
-        MEMORY.push({
-            role: "model",
-            text: reply
-        });
-
-
-        saveMemory();
-
-
-        speak(reply);
-
-    }
-
-    catch (error) {
-
-        console.error(error);
-
-        add(
-            "Sorry, I couldn't connect to my AI core. " +
-            error.message,
-            "bot"
-        );
-
-    }
-
-}
-
-
-// ---------- SEND BUTTON ----------
-send.addEventListener("click", () => {
-
-    const text =
-        msg.value.trim();
-
-
-    if (!text) return;
-
-
-    msg.value = "";
-
-
-    askGemini(text);
-
-});
-
-
-// ---------- ENTER KEY ----------
-msg.addEventListener("keydown", e => {
-
-    if (e.key === "Enter") {
-
-        e.preventDefault();
-
-        send.click();
-
-    }
-
-});
-
-
-// =================================
-// CAMERA / VISION
-// =================================
-
-camBtn.addEventListener("click", () => {
-
-    imgInput.click();
-
-});
-
-
-imgInput.addEventListener("change", async () => {
-
-    const file =
-        imgInput.files[0];
-
-
-    if (!file) return;
-
+    // ---------- SHOW USER MESSAGE ----------
 
     add(
-        "📷 Image captured. Analyzing...",
+        text,
         "user"
     );
 
 
     try {
 
-        const base64 =
-            await fileToBase64(file);
+
+        // ---------- DETECT PERMANENT MEMORY ----------
+
+        const lowerText =
+            text.toLowerCase();
 
 
-        const result =
-            await askVision(base64, file.type);
+        const isPermanentMemory =
+            lowerText.startsWith(
+                "remember permanently"
+            ) ||
+            lowerText.startsWith(
+                "remember this permanently"
+            );
 
 
-        add(result, "bot");
+        if (isPermanentMemory) {
+
+            const memoryText =
+                text
+
+                    .replace(
+                        /^remember this permanently[:\s]*/i,
+                        ""
+                    )
+
+                    .replace(
+                        /^remember permanently[:\s]*/i,
+                        ""
+                    )
+
+                    .trim();
 
 
-        speak(result);
+            if (memoryText) {
+
+                PERMANENT_MEMORY.push(
+                    memoryText
+                );
+
+                savePermanentMemory();
+
+            }
+
+        }
+
+
+        // ---------- GET AI RESPONSE ----------
+
+        const reply =
+            await callGemini(text);
+
+
+        // ---------- SHOW RESPONSE ----------
+
+        add(
+            reply,
+            "bot"
+        );
+
+
+        // ---------- SAVE NORMAL MEMORY ----------
+
+        MEMORY.push({
+
+            role: "user",
+
+            text: text
+
+        });
+
+
+        MEMORY.push({
+
+            role: "model",
+
+            text: reply
+
+        });
+
+
+        saveMemory();
+
+
+        // ---------- SPEAK ----------
+
+        speak(reply);
 
     }
+
 
     catch (error) {
 
         console.error(error);
 
+
         add(
-            "Vision error: " +
+
+            "Sorry, I couldn't connect to my AI core. " +
             error.message,
+
             "bot"
+
         );
 
     }
 
-
-    imgInput.value = "";
-
-});
+}
 
 
-// ---------- FILE TO BASE64 ----------
-function fileToBase64(file) {
+// =================================
+// SEND BUTTON
+// =================================
 
-    return new Promise((resolve, reject) => {
+send.addEventListener(
+    "click",
+    () => {
 
-        const reader =
-            new FileReader();
+        const text =
+            msg.value.trim();
 
 
-        reader.onload = () => {
+        if (!text) return;
 
-            const result =
-                reader.result;
 
+        msg.value = "";
+
+
+        askGemini(text);
+
+    }
+);
+
+
+// =================================
+// ENTER KEY
+// =================================
+
+msg.addEventListener(
+    "keydown",
+    e => {
+
+        if (e.key === "Enter") {
+
+            e.preventDefault();
+
+            send.click();
+
+        }
+
+    }
+);
+
+
+// =================================
+// CAMERA / VISION
+// =================================
+
+camBtn.addEventListener(
+    "click",
+    () => {
+
+        imgInput.click();
+
+    }
+);
+
+
+// =================================
+// IMAGE SELECTED
+// =================================
+
+imgInput.addEventListener(
+    "change",
+    async () => {
+
+        const file =
+            imgInput.files[0];
+
+
+        if (!file) return;
+
+
+        add(
+            "📷 Image captured. Analyzing...",
+            "user"
+        );
+
+
+        try {
 
             const base64 =
-                result.split(",")[1];
+                await fileToBase64(
+                    file
+                );
 
 
-            resolve(base64);
+            const result =
+                await askVision(
+                    base64,
+                    file.type
+                );
 
-        };
+
+            add(
+                result,
+                "bot"
+            );
 
 
-        reader.onerror = reject;
+            speak(result);
+
+        }
 
 
-        reader.readAsDataURL(file);
+        catch (error) {
 
-    });
+            console.error(error);
+
+
+            add(
+
+                "Vision error: " +
+                error.message,
+
+                "bot"
+
+            );
+
+        }
+
+
+        imgInput.value = "";
+
+    }
+);
+
+
+// =================================
+// FILE → BASE64
+// =================================
+
+function fileToBase64(file) {
+
+    return new Promise(
+        (resolve, reject) => {
+
+            const reader =
+                new FileReader();
+
+
+            reader.onload =
+                () => {
+
+                    const result =
+                        reader.result;
+
+
+                    const base64 =
+                        result.split(",")[1];
+
+
+                    resolve(
+                        base64
+                    );
+
+                };
+
+
+            reader.onerror =
+                reject;
+
+
+            reader.readAsDataURL(
+                file
+            );
+
+        }
+    );
 
 }
 
 
-// ---------- VISION REQUEST ----------
-async function askVision(base64, mimeType) {
+// =================================
+// VISION REQUEST
+// =================================
+
+async function askVision(
+    base64,
+    mimeType
+) {
+
 
     const prompt =
         `You are J.A.R.V.I.S.
@@ -356,47 +615,64 @@ Keep the answer useful and concise.`;
 
         try {
 
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`,
-                {
-                    method: "POST",
+            const response =
+                await fetch(
 
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`,
 
-                    body: JSON.stringify({
+                    {
 
-                        contents: [
+                        method: "POST",
 
-                            {
-                                role: "user",
+                        headers: {
 
-                                parts: [
+                            "Content-Type":
+                                "application/json"
 
-                                    {
-                                        text: prompt
-                                    },
+                        },
 
-                                    {
-                                        inline_data: {
-                                            mime_type:
-                                                mimeType,
-                                            data:
-                                                base64
+                        body: JSON.stringify({
+
+                            contents: [
+
+                                {
+
+                                    role: "user",
+
+                                    parts: [
+
+                                        {
+
+                                            text:
+                                                prompt
+
+                                        },
+
+                                        {
+
+                                            inline_data: {
+
+                                                mime_type:
+                                                    mimeType,
+
+                                                data:
+                                                    base64
+
+                                            }
+
                                         }
-                                    }
 
-                                ]
+                                    ]
 
-                            }
+                                }
 
-                        ]
+                            ]
 
-                    })
+                        })
 
-                }
-            );
+                    }
+
+                );
 
 
             const data =
@@ -406,17 +682,19 @@ Keep the answer useful and concise.`;
             if (!response.ok) {
 
                 throw new Error(
+
                     data?.error?.message ||
                     "Vision API error"
+
                 );
 
             }
 
 
             const text =
-                data?.candidates?.[0]
-                    ?.content
-                    ?.parts?.[0]
+                data
+                    ?.candidates?.[0]
+                    ?.content?.parts?.[0]
                     ?.text;
 
 
@@ -433,6 +711,7 @@ Keep the answer useful and concise.`;
 
         }
 
+
         catch (error) {
 
             lastError = error;
@@ -442,44 +721,58 @@ Keep the answer useful and concise.`;
     }
 
 
-    throw lastError ||
-        new Error("Vision request failed");
+    throw (
+
+        lastError ||
+        new Error(
+            "Vision request failed"
+        )
+
+    );
 
 }
 
 
 // =================================
-// CLEAR MEMORY
+// CLEAR NORMAL MEMORY
 // =================================
 
-clearBtn.addEventListener("click", () => {
+clearBtn.addEventListener(
+    "click",
+    () => {
 
-    const confirmClear =
-        confirm(
-            "Clear all J.A.R.V.I.S memory?"
+
+        const confirmClear =
+            confirm(
+                "Clear conversation memory?"
+            );
+
+
+        if (!confirmClear) return;
+
+
+        // IMPORTANT:
+        // Only normal memory is deleted.
+        // Permanent memory stays safe.
+
+        MEMORY = [];
+
+
+        localStorage.removeItem(
+            "jarvis_memory"
         );
 
 
-    if (!confirmClear) return;
+        chat.innerHTML = "";
 
 
-    MEMORY = [];
+        add(
+            "Conversation memory cleared. Permanent memories are still safe.",
+            "bot"
+        );
 
-
-    localStorage.removeItem(
-        "jarvis_memory"
-    );
-
-
-    chat.innerHTML = "";
-
-
-    add(
-        "Memory cleared successfully.",
-        "bot"
-    );
-
-});
+    }
+);
 
 
 // =================================
@@ -490,9 +783,15 @@ let recognition = null;
 
 
 if (
-    "webkitSpeechRecognition" in window ||
-    "SpeechRecognition" in window
+
+    "webkitSpeechRecognition"
+    in window ||
+
+    "SpeechRecognition"
+    in window
+
 ) {
+
 
     const SpeechRecognition =
         window.SpeechRecognition ||
@@ -503,65 +802,103 @@ if (
         new SpeechRecognition();
 
 
-    recognition.lang = "en-IN";
-
-    recognition.continuous = false;
-
-    recognition.interimResults = false;
+    recognition.lang =
+        "en-IN";
 
 
-    recognition.onstart = () => {
-
-        micBtn.innerText = "🔴";
-
-    };
+    recognition.continuous =
+        false;
 
 
-    recognition.onend = () => {
-
-        micBtn.innerText = "🎤";
-
-    };
+    recognition.interimResults =
+        false;
 
 
-    recognition.onerror = error => {
+    // ---------- START ----------
 
-        console.error(
-            "Speech error:",
-            error
-        );
+    recognition.onstart =
+        () => {
 
-        micBtn.innerText = "🎤";
+            micBtn.innerText =
+                "🔴";
 
-    };
-
-
-    recognition.onresult = event => {
-
-        const text =
-            event.results[0][0].transcript;
+        };
 
 
-        msg.value = text;
+    // ---------- END ----------
+
+    recognition.onend =
+        () => {
+
+            micBtn.innerText =
+                "🎤";
+
+        };
 
 
-        send.click();
+    // ---------- ERROR ----------
 
-    };
+    recognition.onerror =
+        error => {
 
+            console.error(
+                "Speech error:",
+                error
+            );
+
+
+            micBtn.innerText =
+                "🎤";
+
+        };
+
+
+    // ---------- RESULT ----------
+
+    recognition.onresult =
+        event => {
+
+            const text =
+                event
+                    .results[0][0]
+                    .transcript;
+
+
+            msg.value =
+                text;
+
+
+            send.click();
+
+        };
+
+
+    // ---------- MIC BUTTON ----------
 
     micBtn.addEventListener(
         "click",
         () => {
 
-            recognition.start();
+            try {
+
+                recognition.start();
+
+            }
+
+            catch (error) {
+
+                console.error(error);
+
+            }
 
         }
     );
 
 }
 
+
 else {
+
 
     micBtn.addEventListener(
         "click",
@@ -583,8 +920,13 @@ else {
 
 function speak(text) {
 
-    if (!("speechSynthesis" in window)) {
+
+    if (
+        !("speechSynthesis" in window)
+    ) {
+
         return;
+
     }
 
 
@@ -592,42 +934,57 @@ function speak(text) {
 
 
     const speech =
-        new SpeechSynthesisUtterance(text);
+        new SpeechSynthesisUtterance(
+            text
+        );
 
 
-    speech.lang = "en-IN";
-
-    speech.rate = 1;
-
-    speech.pitch = 1;
+    speech.lang =
+        "en-IN";
 
 
-    speechSynthesis.speak(speech);
+    speech.rate =
+        1;
+
+
+    speech.pitch =
+        1;
+
+
+    speechSynthesis.speak(
+        speech
+    );
 
 }
 
 
 // =================================
-// ADD MESSAGE TO CHAT
+// ADD MESSAGE
 // =================================
 
 function add(t, w) {
 
+
     const d =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
 
     d.className =
         "msg " + w;
 
 
-    d.innerText = t;
+    d.innerText =
+        t;
 
 
-    chat.appendChild(d);
+    chat.appendChild(
+        d
+    );
 
 
     chat.scrollTop =
         chat.scrollHeight;
 
-}
+                }
