@@ -1,14 +1,19 @@
-// ================================
+// ==========================================
 // J.A.R.V.I.S MOBILE EDITION
 // MEMORY + PERMANENT MEMORY
 // VISION + VOICE
-// ================================
+// 15 TOOLS + GEMINI BRAIN
+// ==========================================
 
 
-// ---------- API KEY ----------
+// ==========================================
+// API KEY
+// ==========================================
+
 let API_KEY = localStorage.getItem("jarvis_key");
 
 if (!API_KEY) {
+
     API_KEY = prompt("Enter your Gemini API Key:");
 
     if (API_KEY) {
@@ -17,14 +22,20 @@ if (!API_KEY) {
 }
 
 
-// ---------- MODELS ----------
+// ==========================================
+// GEMINI MODELS
+// ==========================================
+
 const MODELS = [
     "gemini-3.6-flash",
     "gemini-flash-latest"
 ];
 
 
-// ---------- ELEMENTS ----------
+// ==========================================
+// ELEMENTS
+// ==========================================
+
 const chat = document.getElementById("chat");
 const msg = document.getElementById("msg");
 const send = document.getElementById("send");
@@ -36,9 +47,9 @@ const camBtn = document.getElementById("cam-btn");
 const imgInput = document.getElementById("img-input");
 
 
-// =================================
+// ==========================================
 // NORMAL MEMORY
-// =================================
+// ==========================================
 
 let MEMORY =
     JSON.parse(
@@ -46,9 +57,9 @@ let MEMORY =
     );
 
 
-// =================================
+// ==========================================
 // PERMANENT MEMORY
-// =================================
+// ==========================================
 
 let PERMANENT_MEMORY =
     JSON.parse(
@@ -58,7 +69,10 @@ let PERMANENT_MEMORY =
     );
 
 
-// ---------- SAVE NORMAL MEMORY ----------
+// ==========================================
+// SAVE MEMORY
+// ==========================================
+
 function saveMemory() {
 
     localStorage.setItem(
@@ -69,7 +83,6 @@ function saveMemory() {
 }
 
 
-// ---------- SAVE PERMANENT MEMORY ----------
 function savePermanentMemory() {
 
     localStorage.setItem(
@@ -80,41 +93,696 @@ function savePermanentMemory() {
 }
 
 
-// =================================
-// SHOW OLD NORMAL MEMORY
-// =================================
+// ==========================================
+// LOAD OLD MEMORY
+// ==========================================
 
 MEMORY.forEach(m => {
 
     if (m.role === "user") {
-
-        add(
-            m.text,
-            "user"
-        );
-
+        add(m.text, "user");
     }
 
     if (m.role === "model") {
-
-        add(
-            m.text,
-            "bot"
-        );
-
+        add(m.text, "bot");
     }
 
 });
 
 
-// =================================
-// GEMINI TEXT
-// =================================
+// ==========================================
+// 15 TOOLS
+// ==========================================
+
+async function handleTools(text) {
+
+    const t = text.toLowerCase().trim();
+
+
+    // ======================================
+    // 1. TIME
+    // ======================================
+
+    if (
+        /\btime\b/.test(t) ||
+        t.includes("what time") ||
+        t.includes("current time") ||
+        t.includes("సమయం") ||
+        t.includes("టైమ్")
+    ) {
+
+        return "The time is " +
+            new Date().toLocaleTimeString(
+                "en-IN",
+                {
+                    hour: "numeric",
+                    minute: "2-digit"
+                }
+            ) +
+            ", Boss.";
+
+    }
+
+
+    // ======================================
+    // 2. DATE
+    // ======================================
+
+    if (
+        /\bdate\b/.test(t) ||
+        t.includes("today's date") ||
+        t.includes("today date") ||
+        t.includes("తేదీ")
+    ) {
+
+        return "Today is " +
+            new Date().toLocaleDateString(
+                "en-IN",
+                {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric"
+                }
+            ) +
+            ", Boss.";
+
+    }
+
+
+    // ======================================
+    // 3. WEATHER
+    // ======================================
+
+    if (
+        t.includes("weather") ||
+        t.includes("temperature") ||
+        t.includes("వాతావరణం") ||
+        t.includes("టెంపరేచర్")
+    ) {
+
+        return new Promise(resolve => {
+
+            if (!navigator.geolocation) {
+
+                resolve(
+                    "Geolocation is not supported on this device, Boss."
+                );
+
+                return;
+            }
+
+
+            navigator.geolocation.getCurrentPosition(
+
+                async position => {
+
+                    try {
+
+                        const lat =
+                            position.coords.latitude;
+
+                        const lon =
+                            position.coords.longitude;
+
+
+                        const response =
+                            await fetch(
+                                `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
+                            );
+
+
+                        const data =
+                            await response.json();
+
+
+                        if (
+                            data &&
+                            data.current_weather
+                        ) {
+
+                            resolve(
+                                `It is ${data.current_weather.temperature} degrees Celsius right now, Boss.`
+                            );
+
+                        }
+
+                        else {
+
+                            resolve(
+                                "I couldn't get the current weather, Boss."
+                            );
+
+                        }
+
+                    }
+
+                    catch (error) {
+
+                        resolve(
+                            "Weather service error, Boss."
+                        );
+
+                    }
+
+                },
+
+                () => {
+
+                    resolve(
+                        "I need location permission to check the weather, Boss."
+                    );
+
+                }
+
+            );
+
+        });
+
+    }
+
+
+    // ======================================
+    // 4. TIMER
+    // ======================================
+
+    const timerMatch =
+        t.match(
+            /(\d+)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)\b/i
+        );
+
+
+    if (
+        timerMatch &&
+        (
+            t.includes("timer") ||
+            t.includes("set a timer") ||
+            t.includes("start timer") ||
+            t.includes("టైమర్")
+        )
+    ) {
+
+        const amount =
+            parseInt(timerMatch[1]);
+
+        const unit =
+            timerMatch[2].toLowerCase();
+
+
+        let factor = 60000;
+
+        if (
+            /second|sec/.test(unit)
+        ) {
+
+            factor = 1000;
+
+        }
+
+        else if (
+            /hour|hr/.test(unit)
+        ) {
+
+            factor = 3600000;
+
+        }
+
+
+        const duration =
+            amount * factor;
+
+
+        setTimeout(
+            () => {
+
+                speak(
+                    `Boss, your ${amount} ${unit} timer is finished.`
+                );
+
+                add(
+                    `⏰ Timer finished: ${amount} ${unit}.`,
+                    "bot"
+                );
+
+            },
+            duration
+        );
+
+
+        return `Timer set for ${amount} ${unit}, Boss.`;
+
+    }
+
+
+    // ======================================
+    // 5. TRANSLATE
+    // ======================================
+
+    if (
+        t.startsWith("translate ")
+    ) {
+
+        const q =
+            text
+                .replace(
+                    /^translate\s*/i,
+                    ""
+                )
+                .trim();
+
+
+        if (!q) {
+
+            return "Tell me what you want me to translate, Boss.";
+
+        }
+
+
+        try {
+
+            const response =
+                await fetch(
+                    `https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=en|te`
+                );
+
+
+            const data =
+                await response.json();
+
+
+            return (
+                "In Telugu: " +
+                (
+                    data?.responseData?.translatedText ||
+                    "Translation unavailable."
+                )
+            );
+
+        }
+
+        catch (error) {
+
+            return "Translate error, Boss.";
+
+        }
+
+    }
+
+
+    // ======================================
+    // 6. YOUTUBE SEARCH
+    // ======================================
+
+    if (
+        t.includes("youtube") ||
+        t.startsWith("play ")
+    ) {
+
+        let q =
+            text
+                .replace(
+                    /^(play|search|youtube)\s*/i,
+                    ""
+                )
+                .replace(
+                    /\bon youtube\b/i,
+                    ""
+                )
+                .replace(
+                    /\byoutube\b/i,
+                    ""
+                )
+                .trim();
+
+
+        if (!q) {
+
+            window.open(
+                "https://www.youtube.com/",
+                "_blank"
+            );
+
+            return "Opening YouTube, Boss.";
+
+        }
+
+
+        window.open(
+            "https://www.youtube.com/results?search_query=" +
+            encodeURIComponent(q),
+            "_blank"
+        );
+
+
+        return `Searching YouTube for ${q}, Boss.`;
+
+    }
+
+
+    // ======================================
+    // 7. GOOGLE SEARCH
+    // ======================================
+
+    if (
+        t.startsWith("search google for ") ||
+        t.startsWith("google search ") ||
+        t.startsWith("search for ")
+    ) {
+
+        let q =
+            text
+                .replace(
+                    /^search google for\s*/i,
+                    ""
+                )
+                .replace(
+                    /^google search\s*/i,
+                    ""
+                )
+                .replace(
+                    /^search for\s*/i,
+                    ""
+                )
+                .trim();
+
+
+        if (q) {
+
+            window.open(
+                "https://www.google.com/search?q=" +
+                encodeURIComponent(q),
+                "_blank"
+            );
+
+            return `Searching Google for ${q}, Boss.`;
+
+        }
+
+    }
+
+
+    // ======================================
+    // 8. GOOGLE
+    // ======================================
+
+    if (
+        t === "open google" ||
+        t === "google"
+    ) {
+
+        window.open(
+            "https://www.google.com/",
+            "_blank"
+        );
+
+        return "Opening Google, Boss.";
+
+    }
+
+
+    // ======================================
+    // 9. GMAIL
+    // ======================================
+
+    if (
+        t.includes("open gmail") ||
+        t === "gmail"
+    ) {
+
+        window.open(
+            "https://mail.google.com/",
+            "_blank"
+        );
+
+        return "Opening Gmail, Boss.";
+
+    }
+
+
+    // ======================================
+    // 10. WHATSAPP
+    // ======================================
+
+    if (
+        t.includes("open whatsapp") ||
+        t === "whatsapp"
+    ) {
+
+        window.open(
+            "https://web.whatsapp.com/",
+            "_blank"
+        );
+
+        return "Opening WhatsApp, Boss.";
+
+    }
+
+
+    // ======================================
+    // 11. INSTAGRAM
+    // ======================================
+
+    if (
+        t.includes("open instagram") ||
+        t === "instagram"
+    ) {
+
+        window.open(
+            "https://www.instagram.com/",
+            "_blank"
+        );
+
+        return "Opening Instagram, Boss.";
+
+    }
+
+
+    // ======================================
+    // 12. GOOGLE MAPS
+    // ======================================
+
+    if (
+        t.startsWith("navigate to ") ||
+        t.startsWith("go to ") ||
+        t.startsWith("open maps")
+    ) {
+
+        let place =
+            text
+                .replace(
+                    /^navigate to\s*/i,
+                    ""
+                )
+                .replace(
+                    /^go to\s*/i,
+                    ""
+                )
+                .replace(
+                    /^open maps\s*/i,
+                    ""
+                )
+                .trim();
+
+
+        if (!place) {
+
+            window.open(
+                "https://maps.google.com/",
+                "_blank"
+            );
+
+            return "Opening Google Maps, Boss.";
+
+        }
+
+
+        window.open(
+            "https://www.google.com/maps/search/?api=1&query=" +
+            encodeURIComponent(place),
+            "_blank"
+        );
+
+
+        return `Opening directions for ${place}, Boss.`;
+
+    }
+
+
+    // ======================================
+    // 13. CALCULATOR
+    // ======================================
+
+    if (
+        t.startsWith("calculate ") ||
+        t.startsWith("calc ")
+    ) {
+
+        let expression =
+            text
+                .replace(
+                    /^calculate\s*/i,
+                    ""
+                )
+                .replace(
+                    /^calc\s*/i,
+                    ""
+                )
+                .trim();
+
+
+        // Only allow mathematical characters
+        if (
+            /^[0-9+\-*/().%\s]+$/.test(
+                expression
+            )
+        ) {
+
+            try {
+
+                const result =
+                    Function(
+                        `"use strict"; return (${expression})`
+                    )();
+
+                return `${expression} = ${result}, Boss.`;
+
+            }
+
+            catch {
+
+                return "I couldn't calculate that expression, Boss.";
+
+            }
+
+        }
+
+    }
+
+
+    // ======================================
+    // 14. BATTERY
+    // ======================================
+
+    if (
+        t.includes("battery") ||
+        t.includes("battery level")
+    ) {
+
+        if (
+            navigator.getBattery
+        ) {
+
+            try {
+
+                const battery =
+                    await navigator.getBattery();
+
+
+                const level =
+                    Math.round(
+                        battery.level * 100
+                    );
+
+
+                const charging =
+                    battery.charging
+                        ? "and it is charging"
+                        : "and it is not charging";
+
+
+                return `Battery is at ${level} percent, Boss, ${charging}.`;
+
+            }
+
+            catch {
+
+                return "I couldn't read the battery status, Boss.";
+
+            }
+
+        }
+
+
+        return "Battery information is not available in this browser, Boss.";
+
+    }
+
+
+    // ======================================
+    // 15. CURRENT LOCATION / MAPS
+    // ======================================
+
+    if (
+        t.includes("my location") ||
+        t.includes("where am i") ||
+        t.includes("my current location")
+    ) {
+
+        return new Promise(resolve => {
+
+            if (!navigator.geolocation) {
+
+                resolve(
+                    "Location is not supported on this device, Boss."
+                );
+
+                return;
+
+            }
+
+
+            navigator.geolocation.getCurrentPosition(
+
+                position => {
+
+                    const lat =
+                        position.coords.latitude;
+
+                    const lon =
+                        position.coords.longitude;
+
+
+                    window.open(
+                        `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
+                        "_blank"
+                    );
+
+
+                    resolve(
+                        "I opened your current location in Google Maps, Boss."
+                    );
+
+                },
+
+                () => {
+
+                    resolve(
+                        "I need location permission to find your location, Boss."
+                    );
+
+                }
+
+            );
+
+        });
+
+    }
+
+
+    // ======================================
+    // NO TOOL MATCH
+    // ======================================
+
+    return null;
+
+}
+
+
+// ==========================================
+// GEMINI TEXT BRAIN
+// ==========================================
 
 async function callGemini(prompt) {
-
-
-    // ---------- PERMANENT MEMORY CONTEXT ----------
 
     const permanentContext =
         PERMANENT_MEMORY.length > 0
@@ -124,13 +792,11 @@ IMPORTANT PERMANENT MEMORY:
 
 ${PERMANENT_MEMORY.join("\n")}
 
-Use these memories whenever they are relevant.
-Do not mention this memory system unless necessary.
+Use these memories whenever relevant.
+Do not mention the memory system unless necessary.
 `
             : "";
 
-
-    // ---------- NORMAL MEMORY ----------
 
     const contents =
         MEMORY
@@ -148,8 +814,6 @@ Do not mention this memory system unless necessary.
             }));
 
 
-    // ---------- JARVIS INSTRUCTIONS ----------
-
     contents.unshift({
 
         role: "user",
@@ -166,6 +830,8 @@ English and Telugu.
 
 Be concise, helpful and natural.
 
+Do not pretend to have abilities that you do not have.
+
 ${permanentContext}`
             }
 
@@ -173,8 +839,6 @@ ${permanentContext}`
 
     });
 
-
-    // ---------- CURRENT MESSAGE ----------
 
     contents.push({
 
@@ -193,8 +857,6 @@ ${permanentContext}`
 
     let lastError = null;
 
-
-    // ---------- TRY MODELS ----------
 
     for (const model of MODELS) {
 
@@ -218,8 +880,7 @@ ${permanentContext}`
 
                         body: JSON.stringify({
 
-                            contents:
-                                contents
+                            contents: contents
 
                         })
 
@@ -235,10 +896,8 @@ ${permanentContext}`
             if (!response.ok) {
 
                 throw new Error(
-
                     data?.error?.message ||
                     "Gemini API error"
-
                 );
 
             }
@@ -264,8 +923,12 @@ ${permanentContext}`
 
         }
 
-
         catch (error) {
+
+            console.error(
+                model,
+                error
+            );
 
             lastError = error;
 
@@ -282,29 +945,24 @@ ${permanentContext}`
 }
 
 
-// =================================
+// ==========================================
 // ASK JARVIS
-// =================================
+// ==========================================
 
 async function askGemini(text) {
 
-
-    // ---------- SHOW USER MESSAGE ----------
-
-    add(
-        text,
-        "user"
-    );
+    add(text, "user");
 
 
     try {
 
-
-        // ---------- DETECT PERMANENT MEMORY ----------
-
         const lowerText =
             text.toLowerCase();
 
+
+        // ==================================
+        // PERMANENT MEMORY
+        // ==================================
 
         const isPermanentMemory =
             lowerText.startsWith(
@@ -346,645 +1004,40 @@ async function askGemini(text) {
         }
 
 
-        // ---------- GET AI RESPONSE ----------
+        // ==================================
+        // TRY TOOLS FIRST
+        // ==================================
 
-        const reply =
-            await callGemini(text);
+        const toolResult =
+            await handleTools(text);
 
 
-        // ---------- SHOW RESPONSE ----------
-
-        add(
-            reply,
-            "bot"
-        );
-
-
-        // ---------- SAVE NORMAL MEMORY ----------
-
-        MEMORY.push({
-
-            role: "user",
-
-            text: text
-
-        });
-
-
-        MEMORY.push({
-
-            role: "model",
-
-            text: reply
-
-        });
-
-
-        saveMemory();
-
-
-        // ---------- SPEAK ----------
-
-        speak(reply);
-
-    }
-
-
-    catch (error) {
-
-        console.error(error);
-
-
-        add(
-
-            "Sorry, I couldn't connect to my AI core. " +
-            error.message,
-
-            "bot"
-
-        );
-
-    }
-
-}
-
-
-// =================================
-// SEND BUTTON
-// =================================
-
-send.addEventListener(
-    "click",
-    () => {
-
-        const text =
-            msg.value.trim();
-
-
-        if (!text) return;
-
-
-        msg.value = "";
-
-
-        askGemini(text);
-
-    }
-);
-
-
-// =================================
-// ENTER KEY
-// =================================
-
-msg.addEventListener(
-    "keydown",
-    e => {
-
-        if (e.key === "Enter") {
-
-            e.preventDefault();
-
-            send.click();
-
-        }
-
-    }
-);
-
-
-// =================================
-// CAMERA / VISION
-// =================================
-
-camBtn.addEventListener(
-    "click",
-    () => {
-
-        imgInput.click();
-
-    }
-);
-
-
-// =================================
-// IMAGE SELECTED
-// =================================
-
-imgInput.addEventListener(
-    "change",
-    async () => {
-
-        const file =
-            imgInput.files[0];
-
-
-        if (!file) return;
-
-
-        add(
-            "📷 Image captured. Analyzing...",
-            "user"
-        );
-
-
-        try {
-
-            const base64 =
-                await fileToBase64(
-                    file
-                );
-
-
-            const result =
-                await askVision(
-                    base64,
-                    file.type
-                );
-
+        if (toolResult) {
 
             add(
-                result,
+                toolResult,
                 "bot"
             );
 
 
-            speak(result);
+            MEMORY.push({
 
-        }
+                role: "user",
+                text: text
 
+            });
 
-        catch (error) {
 
-            console.error(error);
+            MEMORY.push({
 
+                role: "model",
+                text: toolResult
 
-            add(
+            });
 
-                "Vision error: " +
-                error.message,
 
-                "bot"
+            saveMemory();
 
-            );
 
-        }
-
-
-        imgInput.value = "";
-
-    }
-);
-
-
-// =================================
-// FILE → BASE64
-// =================================
-
-function fileToBase64(file) {
-
-    return new Promise(
-        (resolve, reject) => {
-
-            const reader =
-                new FileReader();
-
-
-            reader.onload =
-                () => {
-
-                    const result =
-                        reader.result;
-
-
-                    const base64 =
-                        result.split(",")[1];
-
-
-                    resolve(
-                        base64
-                    );
-
-                };
-
-
-            reader.onerror =
-                reject;
-
-
-            reader.readAsDataURL(
-                file
-            );
-
-        }
-    );
-
-}
-
-
-// =================================
-// VISION REQUEST
-// =================================
-
-async function askVision(
-    base64,
-    mimeType
-) {
-
-
-    const prompt =
-        `You are J.A.R.V.I.S.
-
-Analyze this image carefully.
-
-Describe what you can see clearly.
-
-If there is text in the image,
-read the important text.
-
-Reply naturally in Telugu or English
-depending on the user's language.
-
-Keep the answer useful and concise.`;
-
-
-    let lastError = null;
-
-
-    for (const model of MODELS) {
-
-        try {
-
-            const response =
-                await fetch(
-
-                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`,
-
-                    {
-
-                        method: "POST",
-
-                        headers: {
-
-                            "Content-Type":
-                                "application/json"
-
-                        },
-
-                        body: JSON.stringify({
-
-                            contents: [
-
-                                {
-
-                                    role: "user",
-
-                                    parts: [
-
-                                        {
-
-                                            text:
-                                                prompt
-
-                                        },
-
-                                        {
-
-                                            inline_data: {
-
-                                                mime_type:
-                                                    mimeType,
-
-                                                data:
-                                                    base64
-
-                                            }
-
-                                        }
-
-                                    ]
-
-                                }
-
-                            ]
-
-                        })
-
-                    }
-
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-
-                    data?.error?.message ||
-                    "Vision API error"
-
-                );
-
-            }
-
-
-            const text =
-                data
-                    ?.candidates?.[0]
-                    ?.content?.parts?.[0]
-                    ?.text;
-
-
-            if (text) {
-
-                return text;
-
-            }
-
-
-            throw new Error(
-                "No vision response received"
-            );
-
-        }
-
-
-        catch (error) {
-
-            lastError = error;
-
-        }
-
-    }
-
-
-    throw (
-
-        lastError ||
-        new Error(
-            "Vision request failed"
-        )
-
-    );
-
-}
-
-
-// =================================
-// CLEAR NORMAL MEMORY
-// =================================
-
-clearBtn.addEventListener(
-    "click",
-    () => {
-
-
-        const confirmClear =
-            confirm(
-                "Clear conversation memory?"
-            );
-
-
-        if (!confirmClear) return;
-
-
-        // IMPORTANT:
-        // Only normal memory is deleted.
-        // Permanent memory stays safe.
-
-        MEMORY = [];
-
-
-        localStorage.removeItem(
-            "jarvis_memory"
-        );
-
-
-        chat.innerHTML = "";
-
-
-        add(
-            "Conversation memory cleared. Permanent memories are still safe.",
-            "bot"
-        );
-
-    }
-);
-
-
-// =================================
-// VOICE RECOGNITION
-// =================================
-
-let recognition = null;
-
-
-if (
-
-    "webkitSpeechRecognition"
-    in window ||
-
-    "SpeechRecognition"
-    in window
-
-) {
-
-
-    const SpeechRecognition =
-        window.SpeechRecognition ||
-        window.webkitSpeechRecognition;
-
-
-    recognition =
-        new SpeechRecognition();
-
-
-    recognition.lang =
-        "en-IN";
-
-
-    recognition.continuous =
-        false;
-
-
-    recognition.interimResults =
-        false;
-
-
-    // ---------- START ----------
-
-    recognition.onstart =
-        () => {
-
-            micBtn.innerText =
-                "🔴";
-
-        };
-
-
-    // ---------- END ----------
-
-    recognition.onend =
-        () => {
-
-            micBtn.innerText =
-                "🎤";
-
-        };
-
-
-    // ---------- ERROR ----------
-
-    recognition.onerror =
-        error => {
-
-            console.error(
-                "Speech error:",
-                error
-            );
-
-
-            micBtn.innerText =
-                "🎤";
-
-        };
-
-
-    // ---------- RESULT ----------
-
-    recognition.onresult =
-        event => {
-
-            const text =
-                event
-                    .results[0][0]
-                    .transcript;
-
-
-            msg.value =
-                text;
-
-
-            send.click();
-
-        };
-
-
-    // ---------- MIC BUTTON ----------
-
-    micBtn.addEventListener(
-        "click",
-        () => {
-
-            try {
-
-                recognition.start();
-
-            }
-
-            catch (error) {
-
-                console.error(error);
-
-            }
-
-        }
-    );
-
-}
-
-
-else {
-
-
-    micBtn.addEventListener(
-        "click",
-        () => {
-
-            alert(
-                "Voice recognition is not supported in this browser."
-            );
-
-        }
-    );
-
-}
-
-
-// =================================
-// TEXT TO SPEECH
-// =================================
-
-function speak(text) {
-
-
-    if (
-        !("speechSynthesis" in window)
-    ) {
-
-        return;
-
-    }
-
-
-    speechSynthesis.cancel();
-
-
-    const speech =
-        new SpeechSynthesisUtterance(
-            text
-        );
-
-
-    speech.lang =
-        "en-IN";
-
-
-    speech.rate =
-        1;
-
-
-    speech.pitch =
-        1;
-
-
-    speechSynthesis.speak(
-        speech
-    );
-
-}
-
-
-// =================================
-// ADD MESSAGE
-// =================================
-
-function add(t, w) {
-
-
-    const d =
-        document.createElement(
-            "div"
-        );
-
-
-    d.className =
-        "msg " + w;
-
-
-    d.innerText =
-        t;
-
-
-    chat.appendChild(
-        d
-    );
-
-
-    chat.scrollTop =
-        chat.scrollHeight;
-
-                }
+            speak(toolResult);
+                                
