@@ -1,177 +1,681 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+/* ==========================================
+   J.A.R.V.I.S MOBILE EDITION
+   HUD / CYAN INTERFACE
+   ========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap');
+
+
+/* ==========================================
+   GLOBAL
+   ========================================== */
 
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: 'Orbitron', sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Orbitron', sans-serif;
 }
+
+
+html {
+    min-height: 100%;
+    background: #000;
+}
+
 
 body {
-  background: #000;
-  color: #0ff;
-  padding: 20px;
-  overflow-x: hidden;
+    min-height: 100vh;
+    background:
+        radial-gradient(
+            circle at 50% 20%,
+            rgba(0, 255, 255, 0.08),
+            transparent 35%
+        ),
+        #000;
+
+    color: #00ffff;
+
+    padding: 18px;
+
+    overflow-x: hidden;
 }
+
+
+/* ==========================================
+   HEADER
+   ========================================== */
 
 header {
-  text-align: center;
+    text-align: center;
+    margin-bottom: 8px;
 }
+
 
 header h1 {
-  letter-spacing: 6px;
-  text-shadow: 0 0 12px #0ff;
+    font-size: 28px;
+    letter-spacing: 6px;
+
+    text-shadow:
+        0 0 6px #00ffff,
+        0 0 15px #00ffff,
+        0 0 30px rgba(0, 255, 255, 0.5);
 }
+
 
 header p {
-  font-size: 10px;
-  letter-spacing: 4px;
-  opacity: 0.6;
+    margin-top: 5px;
+
+    font-size: 9px;
+    letter-spacing: 4px;
+
+    opacity: 0.65;
 }
+
+
+/* ==========================================
+   JARVIS CORE
+   ========================================== */
 
 .core {
-  position: relative;
-  width: 160px;
-  height: 160px;
-  margin: 25px auto;
+    position: relative;
+
+    width: 170px;
+    height: 170px;
+
+    margin: 24px auto 12px;
 }
+
+
+/* Outer rings */
 
 .ring {
-  position: absolute;
-  border: 2px solid #0ff;
-  border-radius: 50%;
-  box-shadow: 0 0 15px #0ff;
+    position: absolute;
+
+    border: 2px solid #00ffff;
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 10px #00ffff,
+        0 0 25px rgba(0, 255, 255, 0.45);
 }
+
 
 .r1 {
-  inset: 0;
-  border-top-color: transparent;
-  animation: spin 3s linear infinite;
+    inset: 0;
+
+    border-top-color: transparent;
+
+    animation:
+        spin 3s linear infinite;
 }
+
 
 .r2 {
-  inset: 20px;
-  border-bottom-color: transparent;
-  animation: spin 2s linear infinite reverse;
+    inset: 21px;
+
+    border-bottom-color: transparent;
+
+    animation:
+        spin 2s linear infinite reverse;
 }
+
+
+/* Inner core */
 
 .center {
-  position: absolute;
-  inset: 50px;
-  background: #0ff;
-  border-radius: 50%;
-  box-shadow: 0 0 30px #0ff;
-  animation: pulse 1.5s infinite;
+    position: absolute;
+
+    inset: 52px;
+
+    background: #00ffff;
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 15px #00ffff,
+        0 0 35px #00ffff,
+        0 0 65px rgba(0, 255, 255, 0.5);
+
+    animation:
+        pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
-@keyframes pulse {
-  50% {
-    opacity: 0.4;
-  }
-}
+/* ==========================================
+   CORE TEXT
+   ========================================== */
 
 .core-text {
-  text-align: center;
-  font-size: 11px;
-  letter-spacing: 3px;
+    text-align: center;
+
+    font-size: 10px;
+
+    letter-spacing: 3px;
+
+    opacity: 0.8;
+
+    text-shadow:
+        0 0 8px #00ffff;
 }
+
+
+/* ==========================================
+   ANIMATIONS
+   ========================================== */
+
+@keyframes spin {
+
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+
+}
+
+
+@keyframes pulse {
+
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(0.78);
+        opacity: 0.55;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+}
+
+
+/* ==========================================
+   SYSTEM STATUS
+   ========================================== */
 
 .status {
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  background: rgba(0, 255, 255, 0.05);
-  padding: 12px;
-  margin: 20px 0;
+
+    border: 1px solid rgba(0, 255, 255, 0.35);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(0, 255, 255, 0.07),
+            rgba(0, 255, 255, 0.015)
+        );
+
+    padding: 13px;
+
+    margin: 20px 0;
+
+    border-radius: 4px;
+
+    box-shadow:
+        inset 0 0 20px rgba(0, 255, 255, 0.025),
+        0 0 12px rgba(0, 255, 255, 0.08);
 }
+
 
 .status h2 {
-  font-size: 12px;
-  letter-spacing: 2px;
-  margin-bottom: 8px;
+
+    font-size: 11px;
+
+    letter-spacing: 2px;
+
+    margin-bottom: 10px;
+
+    color: #00ffff;
 }
+
 
 .row {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 11px;
-  margin: 6px 0;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    gap: 10px;
+
+    font-size: 10px;
+
+    margin: 7px 0;
+
+    padding-bottom: 5px;
+
+    border-bottom:
+        1px solid rgba(0, 255, 255, 0.08);
 }
+
+
+.row:last-child {
+    border-bottom: none;
+}
+
 
 .on {
-  color: #0f0;
+
+    color: #00ff66;
+
+    text-shadow:
+        0 0 7px rgba(0, 255, 100, 0.8);
 }
+
 
 .off {
-  color: #f00;
+
+    color: #ff3333;
+
 }
+
+
+/* ==========================================
+   CHAT
+   ========================================== */
 
 .chat {
-  border: 1px solid rgba(0, 255, 255, 0.3);
-  height: 150px;
-  overflow-y: auto;
-  padding: 10px;
-  font-size: 12px;
+
+    border:
+        1px solid rgba(0, 255, 255, 0.35);
+
+    height: 210px;
+
+    overflow-y: auto;
+
+    padding: 10px;
+
+    font-size: 11px;
+
+    background:
+        rgba(0, 255, 255, 0.025);
+
+    border-radius: 4px;
+
+    scroll-behavior: smooth;
+
+    box-shadow:
+        inset 0 0 20px rgba(0, 255, 255, 0.025);
 }
+
+
+/* Scrollbar */
+
+.chat::-webkit-scrollbar {
+    width: 4px;
+}
+
+
+.chat::-webkit-scrollbar-track {
+    background: #000;
+}
+
+
+.chat::-webkit-scrollbar-thumb {
+
+    background: #00ffff;
+
+    box-shadow:
+        0 0 8px #00ffff;
+
+}
+
+
+/* ==========================================
+   CHAT MESSAGES
+   ========================================== */
 
 .msg {
-  margin: 6px 0;
-  padding: 6px;
-  border-left: 2px solid #0ff;
-  background: rgba(0, 255, 255, 0.08);
+
+    margin: 7px 0;
+
+    padding: 8px 10px;
+
+    border-left:
+        2px solid #00ffff;
+
+    background:
+        rgba(0, 255, 255, 0.07);
+
+    line-height: 1.5;
+
+    word-wrap: break-word;
+
+    border-radius: 0 4px 4px 0;
 }
+
 
 .msg.user {
-  border-left-color: #fff;
+
+    border-left-color: #ffffff;
+
+    color: #ffffff;
+
+    background:
+        rgba(255, 255, 255, 0.06);
 }
+
+
+.msg.bot {
+
+    border-left-color: #00ffff;
+
+    color: #00ffff;
+}
+
+
+/* ==========================================
+   INPUT AREA
+   ========================================== */
 
 .input-area {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 7px;
+
+    margin-top: 12px;
 }
 
-input {
-  flex: 1 1 220px;
-  min-width: 0;
-  background: #000;
-  border: 1px solid #0ff;
-  color: #0ff;
-  padding: 10px;
+
+/* ==========================================
+   TEXT INPUT
+   ========================================== */
+
+.input-area input {
+
+    flex: 1 1 220px;
+
+    min-width: 0;
+
+    height: 42px;
+
+    background: #000;
+
+    border:
+        1px solid rgba(0, 255, 255, 0.65);
+
+    border-radius: 3px;
+
+    color: #00ffff;
+
+    padding: 10px 12px;
+
+    outline: none;
+
+    font-size: 11px;
+
+    box-shadow:
+        inset 0 0 10px rgba(0, 255, 255, 0.04);
 }
+
+
+.input-area input::placeholder {
+
+    color: rgba(0, 255, 255, 0.45);
+
+}
+
+
+.input-area input:focus {
+
+    border-color: #00ffff;
+
+    box-shadow:
+        0 0 10px rgba(0, 255, 255, 0.2),
+        inset 0 0 10px rgba(0, 255, 255, 0.05);
+
+}
+
+
+/* ==========================================
+   BUTTONS
+   ========================================== */
 
 button {
-  background: #0ff;
-  color: #000;
-  border: none;
-  padding: 10px 16px;
-  font-weight: bold;
-  white-space: nowrap;
+
+    height: 42px;
+
+    background: #00ffff;
+
+    color: #000;
+
+    border: none;
+
+    border-radius: 3px;
+
+    padding: 0 13px;
+
+    font-weight: 700;
+
+    font-size: 10px;
+
+    cursor: pointer;
+
+    transition:
+        0.2s ease;
+
+    box-shadow:
+        0 0 8px rgba(0, 255, 255, 0.35);
 }
+
+
+button:hover {
+
+    box-shadow:
+        0 0 15px #00ffff;
+
+    transform:
+        translateY(-1px);
+}
+
+
+button:active {
+
+    transform:
+        scale(0.95);
+
+}
+
+
+/* ==========================================
+   SEND BUTTON
+   ========================================== */
+
+#send {
+
+    min-width: 65px;
+
+}
+
+
+/* ==========================================
+   MIC BUTTON
+   ========================================== */
+
+#mic-btn {
+
+    min-width: 48px;
+
+    font-size: 17px;
+
+}
+
+
+/* ==========================================
+   MEMORY BUTTON
+   ========================================== */
+
+#clear-btn {
+
+    min-width: 48px;
+
+    font-size: 16px;
+
+}
+
+
+/* ==========================================
+   CAMERA BUTTON
+   ========================================== */
+
+#cam-btn {
+
+    min-width: 48px;
+
+    font-size: 17px;
+
+}
+
+
+/* ==========================================
+   MOBILE
+   ========================================== */
 
 @media (max-width: 600px) {
-  body {
-    padding: 12px;
-  }
 
-  .input-area input {
-    flex: 1 1 100%;
-    width: 100%;
-  }
+    body {
+        padding: 12px;
+    }
 
-  .input-area button {
-    flex: 1 1 auto;
-    padding: 10px 9px;
-    font-size: 10px;
-  }
 
-  .row {
-    font-size: 10px;
-  }
+    header h1 {
+
+        font-size: 23px;
+
+        letter-spacing: 5px;
+
+    }
+
+
+    .core {
+
+        width: 145px;
+        height: 145px;
+
+        margin-top: 20px;
+
+    }
+
+
+    .r2 {
+        inset: 18px;
+    }
+
+
+    .center {
+        inset: 44px;
+    }
+
+
+    .chat {
+
+        height: 230px;
+
+        font-size: 11px;
+
+    }
+
+
+    .input-area {
+
+        gap: 6px;
+
+    }
+
+
+    .input-area input {
+
+        flex:
+            1 1 100%;
+
+        width: 100%;
+
+    }
+
+
+    .input-area button {
+
+        flex: 1;
+
+        min-width: 0;
+
+        padding:
+            0 7px;
+
+        font-size: 9px;
+
+    }
+
+
+    #mic-btn,
+    #clear-btn,
+    #cam-btn {
+
+        font-size: 15px;
+
+    }
+
 }
+
+
+/* ==========================================
+   VERY SMALL PHONES
+   ========================================== */
+
+@media (max-width: 360px) {
+
+    body {
+        padding: 9px;
+    }
+
+
+    header h1 {
+
+        font-size: 19px;
+
+        letter-spacing: 4px;
+
+    }
+
+
+    .core {
+
+        width: 125px;
+        height: 125px;
+
+    }
+
+
+    .center {
+
+        inset: 38px;
+
+    }
+
+
+    .chat {
+
+        height: 210px;
+
+    }
+
+
+    .input-area button {
+
+        font-size: 8px;
+
+    }
+
+  }
