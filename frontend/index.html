@@ -50,11 +50,7 @@
 
 <div class="input-area">
 
-    <input
-        id="msg"
-        placeholder="Enter a command for J.A.R.V.I.S..."
-        autocomplete="off"
-    >
+    <input id="msg" placeholder="Entera command for J.A.R.V.I.S...">
 
     <button id="send">EXECUTE</button>
 
@@ -62,32 +58,16 @@
         🎙
     </button>
 
-    <!-- CAMERA -->
-    <button id="camera-btn" aria-label="Open camera">
-        📷 CAMERA
-    </button>
-
-    <!-- GALLERY -->
-    <button id="gallery-btn" aria-label="Open gallery">
-        🖼️ GALLERY
+    <button id="cam-btn" aria-label="Analyze image">
+        📷
     </button>
 
     <button id="clear-btn">
         CLEAR MEMORY
     </button>
 
-    <!-- Hidden camera input -->
     <input
-        id="camera-input"
-        type="file"
-        accept="image/*"
-        capture="environment"
-        style="display:none"
-    >
-
-    <!-- Hidden gallery input -->
-    <input
-        id="gallery-input"
+        id="img-input"
         type="file"
         accept="image/*"
         style="display:none"
