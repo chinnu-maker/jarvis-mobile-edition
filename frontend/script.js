@@ -1,3 +1,4 @@
+alert("JARVIS SCRIPT IS RUNNING");
 alert("JARVIS JS LOADED");
 // ==========================================
 // J.A.R.V.I.S MOBILE EDITION
