@@ -1,82 +1,497 @@
-// ===== CAMERA + GALLERY VISION =====
+// ===== 1. API KEY & SMART MODELS =====
 
-const cameraBtn = document.getElementById("camera-btn");
-const galleryBtn = document.getElementById("gallery-btn");
+let API_KEY = localStorage.getItem('jarvis_key');
 
-const cameraInput = document.getElementById("camera-input");
-const galleryInput = document.getElementById("gallery-input");
+if (!API_KEY) {
+    API_KEY = prompt('Enter your Gemini API Key:');
+
+    if (API_KEY) {
+        localStorage.setItem('jarvis_key', API_KEY);
+    }
+}
+
+const MODELS = [
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest"
+];
 
 
-// CAMERA
-if (cameraBtn && cameraInput) {
+// ===== 2. MEMORY SYSTEM =====
 
-    cameraBtn.onclick = () => {
-        cameraInput.click();
-    };
+let MEMORY = JSON.parse(
+    localStorage.getItem('jarvis_memory') || '[]'
+);
 
-    cameraInput.onchange = () => {
-
-        const file = cameraInput.files[0];
-
-        if (!file) return;
-
-        analyzeSelectedImage(file);
-
-        // Reset so same photo can be selected again
-        cameraInput.value = "";
-    };
+function saveMemory() {
+    localStorage.setItem(
+        'jarvis_memory',
+        JSON.stringify(MEMORY)
+    );
 }
 
 
-// GALLERY
-if (galleryBtn && galleryInput) {
-
-    galleryBtn.onclick = () => {
-        galleryInput.click();
-    };
-
-    galleryInput.onchange = () => {
-
-        const file = galleryInput.files[0];
-
-        if (!file) return;
-
-        analyzeSelectedImage(file);
-
-        // Reset so same photo can be selected again
-        galleryInput.value = "";
-    };
-}
+const chat = document.getElementById('chat');
+const input = document.getElementById('msg');
+const micBtn = document.getElementById('mic-btn');
+const clearBtn = document.getElementById('clear-btn');
+const camBtn = document.getElementById('cam-btn');
+const imgInput = document.getElementById('img-input');
 
 
-// IMAGE PROCESSING
-function analyzeSelectedImage(file) {
+MEMORY.forEach(m =>
+    add(
+        (m.role === 'user'
+            ? 'YOU: '
+            : 'J.A.R.V.I.S: ') + m.text,
+        m.role === 'user' ? 'user' : 'ai'
+    )
+);
 
-    if (!file.type.startsWith("image/")) {
-        add("J.A.R.V.I.S: Please select an image.", "ai");
-        return;
+
+// ===== 3. GEMINI BRAIN =====
+
+async function callGemini(p) {
+
+    const contents = MEMORY
+        .slice(-12)
+        .map(m => ({
+            role: m.role,
+            parts: [
+                {
+                    text: m.text
+                }
+            ]
+        }));
+
+    contents.push({
+        role: 'user',
+        parts: [
+            {
+                text: p
+            }
+        ]
+    });
+
+
+    let lastErr;
+
+
+    for (const m of MODELS) {
+
+        try {
+
+            const res = await fetch(
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                + m +
+                ":generateContent?key="
+                + API_KEY,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        contents: contents
+                    })
+                }
+            );
+
+
+            const data = await res.json();
+
+
+            if (data.error) {
+
+                lastErr = new Error(
+                    data.error.message
+                );
+
+                if (
+                    /high demand|temporar|quota|rate|unavailable|deprecated/i
+                    .test(data.error.message)
+                ) {
+                    continue;
+                }
+
+                throw lastErr;
+            }
+
+
+            return data
+                .candidates[0]
+                .content
+                .parts[0]
+                .text;
+
+        } catch (e) {
+
+            lastErr = e;
+
+        }
     }
 
-    const reader = new FileReader();
 
-    reader.onload = () => {
+    throw lastErr;
+}
 
-        const base64 = reader.result.split(",")[1];
 
-        const question =
-            input.value.trim() ||
-            "Analyze this image and tell me what you see.";
+// ===== 4. ASK GEMINI =====
 
-        add("YOU: [IMAGE] " + question, "user");
+async function askGemini(p) {
 
-        input.value = "";
+    add(
+        'J.A.R.V.I.S: Thinking...',
+        'ai'
+    );
 
-        askVision(
-            base64,
-            file.type,
-            question
-        );
+
+    try {
+
+        const reply = await callGemini(p);
+
+
+        MEMORY.push({
+            role: 'user',
+            text: p
+        });
+
+
+        MEMORY.push({
+            role: 'model',
+            text: reply
+        });
+
+
+        saveMemory();
+
+
+        chat.lastChild.innerText =
+            'J.A.R.V.I.S: ' + reply;
+
+
+        speak(reply);
+
+
+    } catch (e) {
+
+        chat.lastChild.innerText =
+            'J.A.R.V.I.S: ERROR - ' +
+            e.message;
+    }
+}
+
+
+// ===== 5. VISION ENGINE =====
+
+if (camBtn && imgInput) {
+
+    camBtn.onclick = () => {
+        imgInput.click();
     };
 
-    reader.readAsDataURL(file);
+
+    imgInput.onchange = () => {
+
+        const file = imgInput.files[0];
+
+        if (!file) return;
+
+
+        const reader = new FileReader();
+
+
+        reader.onload = () => {
+
+            const base64 =
+                reader.result.split(',')[1];
+
+
+            const q =
+                input.value.trim() ||
+                'What do you see? Describe briefly.';
+
+
+            add(
+                'YOU: [IMAGE] ' + q,
+                'user'
+            );
+
+
+            input.value = '';
+
+
+            askVision(
+                base64,
+                file.type,
+                q
+            );
+        };
+
+
+        reader.readAsDataURL(file);
+    };
 }
+
+
+async function askVision(
+    base64,
+    mime,
+    q
+) {
+
+    add(
+        'J.A.R.V.I.S: Analyzing image...',
+        'ai'
+    );
+
+
+    let lastErr;
+
+
+    for (const m of MODELS) {
+
+        try {
+
+            const res = await fetch(
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                + m +
+                ":generateContent?key="
+                + API_KEY,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        contents: [
+                            {
+                                parts: [
+                                    {
+                                        text: q
+                                    },
+                                    {
+                                        inline_data: {
+                                            mime_type: mime,
+                                            data: base64
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    })
+                }
+            );
+
+
+            const data = await res.json();
+
+
+            if (data.error) {
+
+                lastErr = new Error(
+                    data.error.message
+                );
+
+
+                if (
+                    /high demand|temporar|quota|rate|unavailable|deprecated/i
+                    .test(data.error.message)
+                ) {
+                    continue;
+                }
+
+
+                throw lastErr;
+            }
+
+
+            const reply =
+                data.candidates[0]
+                    .content.parts[0].text;
+
+
+            chat.lastChild.innerText =
+                'J.A.R.V.I.S: ' + reply;
+
+
+            speak(reply);
+
+
+            return;
+
+        } catch (e) {
+
+            lastErr = e;
+
+        }
+    }
+
+
+    chat.lastChild.innerText =
+        'J.A.R.V.I.S: ERROR - ' +
+        lastErr.message;
+}
+
+
+// ===== 6. VOICE =====
+
+const SR =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+
+if (SR && micBtn) {
+
+    const rec = new SR();
+
+    rec.lang = 'en-US';
+
+
+    rec.onresult = (e) => {
+
+        const t =
+            e.results[0][0].transcript;
+
+
+        add(
+            'YOU: ' + t,
+            'user'
+        );
+
+
+        askGemini(t);
+    };
+
+
+    micBtn.onclick = () => {
+
+        rec.start();
+
+        micBtn.innerText =
+            'LISTENING...';
+    };
+
+
+    rec.onend = () => {
+
+        micBtn.innerText = '🎙';
+    };
+}
+
+
+// ===== 7. VOICE OUTPUT =====
+
+let voices = [];
+
+
+function loadVoices() {
+
+    voices =
+        speechSynthesis.getVoices();
+}
+
+
+loadVoices();
+
+
+speechSynthesis.onvoiceschanged =
+    loadVoices;
+
+
+function speak(t) {
+
+    const u =
+        new SpeechSynthesisUtterance(t);
+
+
+    u.rate = 1.05;
+    u.pitch = 0.85;
+
+
+    const v =
+        voices.find(v =>
+            v.lang.startsWith('en')
+        );
+
+
+    if (v) {
+        u.voice = v;
+    }
+
+
+    speechSynthesis.speak(u);
+}
+
+
+// ===== 8. TEXT SEND =====
+
+document
+    .getElementById('send')
+    .onclick = () => {
+
+        const t =
+            input.value.trim();
+
+
+        if (!t) return;
+
+
+        add(
+            'YOU: ' + t,
+            'user'
+        );
+
+
+        input.value = '';
+
+
+        askGemini(t);
+    };
+
+
+// ===== 9. CLEAR MEMORY =====
+
+if (clearBtn) {
+
+    clearBtn.onclick = () => {
+
+        MEMORY = [];
+
+        saveMemory();
+
+        chat.innerHTML = '';
+
+        add(
+            'SYSTEM: Memory cleared.',
+            'ai'
+        );
+    };
+}
+
+
+// ===== 10. CHAT MESSAGE =====
+
+function add(t, w) {
+
+    const d =
+        document.createElement('div');
+
+
+    d.className =
+        'msg ' + w;
+
+
+    d.innerText = t;
+
+
+    chat.appendChild(d);
+
+
+    chat.scrollTop =
+        chat.scrollHeight;
+    }
