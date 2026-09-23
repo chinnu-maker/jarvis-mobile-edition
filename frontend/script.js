@@ -1,3 +1,4 @@
+alert("JARVIS JS LOADED");
 // ==========================================
 // J.A.R.V.I.S MOBILE EDITION
 // GEMINI + MEMORY + VISION + VOICE
