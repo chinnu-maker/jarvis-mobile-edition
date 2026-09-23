@@ -1148,6 +1148,442 @@ async function askJarvis(text) {
             return;
 
         }
+        }
+
+        // ==================================
+        // GEMINI RESPONSE
+        // ==================================
+
+        const answer =
+            await callGemini(text);
+
+        add(
+            answer,
+            "bot"
+        );
+
+        MEMORY.push({
+            role: "user",
+            text: text
+        });
+
+        MEMORY.push({
+            role: "model",
+            text: answer
+        });
+
+        saveMemory();
+
+        speak(answer);
+
+    }
+    catch (error) {
+
+        console.error(
+            "JARVIS ERROR:",
+            error
+        );
+
+        const errorMessage =
+            "Sorry Boss, I encountered an error: " +
+            error.message;
+
+        add(
+            errorMessage,
+            "bot"
+        );
+
+    }
+
+}
 
 
-        // ===========
+// ==========================================
+// SEND BUTTON
+// ==========================================
+
+send.addEventListener(
+    "click",
+    async () => {
+
+        const text =
+            msg.value.trim();
+
+        if (!text) return;
+
+        msg.value = "";
+
+        await askJarvis(text);
+
+    }
+);
+
+
+// ==========================================
+// ENTER KEY
+// ==========================================
+
+msg.addEventListener(
+    "keydown",
+    async (event) => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            const text =
+                msg.value.trim();
+
+            if (!text) return;
+
+            msg.value = "";
+
+            await askJarvis(text);
+
+        }
+
+    }
+);
+
+
+// ==========================================
+// CLEAR BUTTON
+// ==========================================
+
+clearBtn.addEventListener(
+    "click",
+    () => {
+
+        MEMORY = [];
+
+        saveMemory();
+
+        chat.innerHTML = "";
+
+        add(
+            "Normal memory cleared. Permanent memory is preserved, Boss.",
+            "bot"
+        );
+
+    }
+);
+
+
+// ==========================================
+// CAMERA / GALLERY BUTTON
+// ==========================================
+
+camBtn.addEventListener(
+    "click",
+    () => {
+
+        imgInput.click();
+
+    }
+);
+
+
+// ==========================================
+// IMAGE SELECTED
+// ==========================================
+
+imgInput.addEventListener(
+    "change",
+    async () => {
+
+        const file =
+            imgInput.files[0];
+
+        if (!file) return;
+
+        add(
+            "Image selected. Analyzing...",
+            "user"
+        );
+
+        const reader =
+            new FileReader();
+
+        reader.onload = async () => {
+
+            try {
+
+                const base64 =
+                    reader.result.split(",")[1];
+
+                await askVision(
+                    base64,
+                    file.type
+                );
+
+            }
+            catch (error) {
+
+                console.error(
+                    "VISION ERROR:",
+                    error
+                );
+
+                add(
+                    "I couldn't analyze that image, Boss.",
+                    "bot"
+                );
+
+            }
+
+        };
+
+        reader.readAsDataURL(file);
+
+        imgInput.value = "";
+
+    }
+);
+
+
+// ==========================================
+// VISION
+// ==========================================
+
+async function askVision(
+    base64,
+    mimeType
+) {
+
+    if (!API_KEY) {
+
+        add(
+            "Gemini API key is missing, Boss.",
+            "bot"
+        );
+
+        return;
+
+    }
+
+    try {
+
+        const response =
+            await fetch(
+
+                `https://generativelanguage.googleapis.com/v1beta/models/${MODELS[0]}:generateContent?key=${API_KEY}`,
+
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            contents: [
+
+                                {
+                                    role: "user",
+
+                                    parts: [
+
+                                        {
+                                            text:
+                                                "Analyze this image and describe what you see clearly."
+                                        },
+
+                                        {
+                                            inline_data: {
+
+                                                mime_type:
+                                                    mimeType,
+
+                                                data:
+                                                    base64
+
+                                            }
+
+                                        }
+
+                                    ]
+
+                                }
+
+                            ]
+
+                        })
+
+                }
+
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data?.error?.message ||
+                "Vision request failed."
+            );
+
+        }
+
+
+        const answer =
+            data
+                ?.candidates?.[0]
+                ?.content
+                ?.parts?.[0]
+                ?.text;
+
+
+        if (!answer) {
+
+            throw new Error(
+                "No vision response received."
+            );
+
+        }
+
+
+        add(
+            answer,
+            "bot"
+        );
+
+        speak(answer);
+
+    }
+    catch (error) {
+
+        console.error(
+            "VISION ERROR:",
+            error
+        );
+
+        add(
+            "Vision error: " +
+            error.message,
+            "bot"
+        );
+
+    }
+
+}
+
+
+// ==========================================
+// MICROPHONE
+// ==========================================
+
+const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+
+if (SpeechRecognition) {
+
+    const recognition =
+        new SpeechRecognition();
+
+    recognition.lang =
+        "en-IN";
+
+    recognition.continuous =
+        false;
+
+    recognition.interimResults =
+        false;
+
+
+    micBtn.addEventListener(
+        "click",
+        () => {
+
+            try {
+
+                recognition.start();
+
+                add(
+                    "Listening...",
+                    "bot"
+                );
+
+            }
+            catch (error) {
+
+                console.log(
+                    "Microphone already running."
+                );
+
+            }
+
+        }
+    );
+
+
+    recognition.onresult =
+        async (event) => {
+
+            const text =
+                event
+                    .results[0][0]
+                    .transcript
+                    .trim();
+
+            msg.value = text;
+
+            await askJarvis(text);
+
+            msg.value = "";
+
+        };
+
+
+    recognition.onerror =
+        (event) => {
+
+            console.error(
+                "MIC ERROR:",
+                event.error
+            );
+
+            add(
+                "Microphone error: " +
+                event.error,
+                "bot"
+            );
+
+        };
+
+}
+else {
+
+    micBtn.addEventListener(
+        "click",
+        () => {
+
+            add(
+                "Voice recognition is not supported in this browser, Boss.",
+                "bot"
+            );
+
+        }
+    );
+
+}
+
+
+// ==========================================
+// READY
+// ==========================================
+
+console.log(
+    "J.A.R.V.I.S FULLY INITIALIZED"
+);
+
+});
+
+        
